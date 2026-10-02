@@ -21,20 +21,22 @@ MOONRAKER="http://localhost:7125"
 LOG="$HOME/printer_data/logs/update_toolhead.log"
 
 FORCE=0
+DETACH=0
 for arg in "$@"; do
     case "$arg" in
         --force) FORCE=1 ;;
-        --detach)
-            shift_args=()
-            [ "$FORCE" = 1 ] && shift_args+=(--force)
-            for a in "$@"; do [ "$a" = "--force" ] && shift_args+=(--force); done
-            sudo systemctl reset-failed update-toolhead 2>/dev/null
-            sudo systemd-run --unit=update-toolhead --collect --uid="$(id -u)" \
-                --setenv=HOME="$HOME" "$(readlink -f "$0")" "${shift_args[@]}"
-            echo "Toolhead update started in background, log: $LOG"
-            exit 0 ;;
+        --detach) DETACH=1 ;;
     esac
 done
+
+if [ "$DETACH" = 1 ]; then
+    args=()
+    [ "$FORCE" = 1 ] && args+=(--force)
+    sudo systemctl reset-failed update-toolhead 2>/dev/null
+    sudo systemd-run --unit=update-toolhead --collect --uid="$(id -u)" --setenv=HOME="$HOME" "$(readlink -f "$0")" "${args[@]}"
+    echo "Toolhead update started in background, log: $LOG"
+    exit 0
+fi
 
 exec > >(tee -a "$LOG") 2>&1
 log() { echo "[$(date '+%F %T')] $*"; }
